@@ -84,6 +84,12 @@ def optimality_operator(v, mdp, discount_factor):
         Tv[i] = mdp.r[mdp.X[i], pi[mdp.X[i]]] + discount_factor*sum([mdp.p[mdp.X[i], pi[mdp.X[i]]][mdp.X[j]]*v[j] for j in range(mdp.n)])
     return Tv
 
+def policy_operator(v, mdp, discount_factor, pi):
+    Tv = np.zeros((mdp.n, 1))
+    for i in range(mdp.n):
+        Tv[i] = mdp.r[mdp.X[i], pi[mdp.X[i]]] + discount_factor*sum([mdp.p[mdp.X[i], pi[mdp.X[i]]][mdp.X[j]]*v[j] for j in range(mdp.n)])
+    return Tv
+
 def policy_iteration(mdp, discount_factor):
     start = time.time()
     """Select an initial policy."""
@@ -121,5 +127,29 @@ def value_iteration(mdp, discount_factor, epsilon=0.001):
         Tv = optimality_operator(v, mdp, discount_factor)
     print 'Number of value iterations: {}'.format(iteration_count)
     print 'Value iteration took {} seconds.'.format(time.time() - start)
+    pi = greedy_policy(v, mdp, discount_factor)
+    return pi
+
+def modified_policy_iteration(mdp, discount_factor, num_vis_per_iter, epsilon=0.001):
+    start = time.time()
+    """Initialization"""
+    v = np.zeros((mdp.n, 1))
+    pi = greedy_policy(v, mdp, discount_factor)
+    Tv = v
+    for i in range(num_vis_per_iter):
+        Tv = policy_operator(Tv, mdp, discount_factor, pi)
+    """Iterate until epsilon-convergence"""
+    iteration_count = 0
+    while max(np.absolute(Tv - v))[0] > epsilon*(1 - discount_factor)/discount_factor:
+        iteration_count += 1
+        # print 'Iteration {}'.format(iteration_count)
+        v = Tv # value vector from previous iteration
+        pi = greedy_policy(v, mdp, discount_factor)
+        """Update the value vector"""
+        Tv = v
+        for i in range(num_vis_per_iter):
+            Tv = policy_operator(Tv, mdp, discount_factor, pi)
+    print 'Number of modified policy iterations: {}'.format(iteration_count)
+    print 'Modified policy iteration took {} seconds.'.format(time.time() - start)
     pi = greedy_policy(v, mdp, discount_factor)
     return pi

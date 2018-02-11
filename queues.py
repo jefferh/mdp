@@ -1,11 +1,10 @@
 from __future__ import division
 from math import *
 from collections import defaultdict
-from sklearn.cluster import KMeans
 import numpy as np
 import random
-import MDP
 import time
+import MDP
 
 class CRW:
     """
