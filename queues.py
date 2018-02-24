@@ -1,6 +1,8 @@
 from __future__ import division
 from math import *
 from collections import defaultdict
+from matplotlib import pyplot
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import random
 import time
@@ -21,11 +23,11 @@ class TwoParallel_WithDet:
         service_list = list where the indices are the server states, and
         each value is a tuple whose first element is the queue 1 service rate 
         for that state, whose second element is the queue 2 service rate for 
-        that state, and whose third element is the probability that the server
+        that state, and whose third element is the rate at which the server
         changes state
         
-        arrival_prob_1 = probability that there's an arrival to queue 1
-        arrival_prob_2 = probability that there's an arrival to queue 2
+        arrival_prob_1 = arrival rate to queue 1
+        arrival_prob_2 = arrival rate to queue 2
         cost_rate_1 = holding cost rate for queue 1
         cost_rate_2 = holding cost rate for queue 2
         maint_cost = fixed cost to initiate maintenance
@@ -64,35 +66,68 @@ class TwoParallel_WithDet:
         A = [0, 1, 2, 'm'] # set of all actions; 0 = idle, 1 = serve queue 1, 2 = serve queue 2, 'm' = maintain
 
         ## Action 0 (idle the server) #########################################################################################
-        for i in range(N[1]): # transitions when neither queue is full
-            for j in range(N[2]):
-                for s in range(1,S):
-                        mdp_dict[((i, j, s), 0)] = (-(c[1]*i + c[2]*j),
-                                                        defaultdict(lambda : 0, {(i+1, j, s) : arr[1],
-                                                                                     (i, j+1, s) : arr[2],
-                                                                                     (i, j, s-1) : det[s],
-                                                                                     (i, j, s) : 1 - arr[1] - arr[2] - det[s]}))
-        for j in range(N[2]): # transitions when queue 1 is full
-            for s in range(1,S):
-                mdp_dict[((N[1], j, s), 0)] = (-(c[1]*N[1] + c[2]*j),
-                                                   defaultdict(lambda : 0, {(N[1], j+1, s) : arr[2],
-                                                                                (N[1], j, s-1) : det[s],
-                                                                                (N[1], j, s) : 1 - arr[2] - det[s]}))
-        for i in range(N[1]): # transitions when queue 2 is full
-            for s in range(1,S):
-                mdp_dict[((i, N[2], s), 0)] = (-(c[1]*i + c[2]*N[2]),
-                                                   defaultdict(lambda : 0, {(i+1, N[2], s) : arr[1],
-                                                                                (i, N[2], s-1) : det[s],
-                                                                                (i, N[2], s) : 1 - arr[1] - det[s]}))
-        # transitions when both queues are full
-        for s in range(1,S):
-            mdp_dict[((N[1], N[2], s), 0)] = (-(c[1]*N[1] + c[2]*N[2]),
-                                                  defaultdict(lambda : 0, {(N[1], N[2], s-1) : det[s],
-                                                                               (N[1], N[2], s) : 1 - det[s]}))
+        mdp_dict[((0, 0, 1), 0)] = (-K*det[1],
+                                        defaultdict(lambda : 0, {(1, 0, 1) : arr[1],
+                                                                     (0, 1, 1) : arr[2],
+                                                                     (0, 0, 0) : det[1],
+                                                                     (0, 0, 1) : 1 - arr[1] - arr[2] - det[1]}))
+        for s in range(2,S):
+            mdp_dict[((0, 0, s), 0)] = (0,
+                                            defaultdict(lambda : 0, {(1, 0, s) : arr[1],
+                                                                         (0, 1, s) : arr[2],
+                                                                         (0, 0, s-1) : det[s],
+                                                                         (0, 0, s) : 1 - arr[1] - arr[2] - det[s]}))
+        # for i in range(N[1]): # transitions when neither queue is full
+        #     for j in range(N[2]):
+        #         mdp_dict[((i, j, 1), 0)] = (-(c[1]*i + c[2]*j + K*det[1]),
+        #                                         defaultdict(lambda : 0, {(i+1, j, 1) : arr[1],
+        #                                                                      (i, j+1, 1) : arr[2],
+        #                                                                      (i, j, 0) : det[1],
+        #                                                                      (i, j, 1) : 1 - arr[1] - arr[2] - det[1]}))
+        #         for s in range(2,S):
+        #                 mdp_dict[((i, j, s), 0)] = (-(c[1]*i + c[2]*j),
+        #                                                 defaultdict(lambda : 0, {(i+1, j, s) : arr[1],
+        #                                                                              (i, j+1, s) : arr[2],
+        #                                                                              (i, j, s-1) : det[s],
+        #                                                                              (i, j, s) : 1 - arr[1] - arr[2] - det[s]}))
+        # for j in range(N[2]): # transitions when queue 1 is full
+        #     mdp_dict[((N[1], j, 1), 0)] = (-(c[1]*N[1] + c[2]*j + K*det[1]),
+        #                                        defaultdict(lambda : 0, {(N[1], j+1, 1) : arr[2],
+        #                                                                     (N[1], j, 0) : det[1],
+        #                                                                     (N[1], j, 1) : 1 - arr[2] - det[1]}))
+        #     for s in range(2,S):
+        #         mdp_dict[((N[1], j, s), 0)] = (-(c[1]*N[1] + c[2]*j),
+        #                                            defaultdict(lambda : 0, {(N[1], j+1, s) : arr[2],
+        #                                                                         (N[1], j, s-1) : det[s],
+        #                                                                         (N[1], j, s) : 1 - arr[2] - det[s]}))
+        # for i in range(N[1]): # transitions when queue 2 is full
+        #     mdp_dict[((i, N[2], 1), 0)] = (-(c[1]*i + c[2]*N[2] + K*det[1]),
+        #                                        defaultdict(lambda : 0, {(i+1, N[2], 1) : arr[1],
+        #                                                                     (i, N[2], 0) : det[1],
+        #                                                                     (i, N[2], 1) : 1 - arr[1] - det[1]}))
+        #     for s in range(2,S):
+        #         mdp_dict[((i, N[2], s), 0)] = (-(c[1]*i + c[2]*N[2]),
+        #                                            defaultdict(lambda : 0, {(i+1, N[2], s) : arr[1],
+        #                                                                         (i, N[2], s-1) : det[s],
+        #                                                                         (i, N[2], s) : 1 - arr[1] - det[s]}))
+        # # transitions when both queues are full
+        # mdp_dict[((N[1], N[2], 1), 0)] = (-(c[1]*N[1] + c[2]*N[2] + K*det[1]),
+        #                                       defaultdict(lambda : 0, {(N[1], N[2], 0) : det[1],
+        #                                                                    (N[1], N[2], 1) : 1 - det[1]}))
+        # for s in range(2,S):
+        #     mdp_dict[((N[1], N[2], s), 0)] = (-(c[1]*N[1] + c[2]*N[2]),
+        #                                           defaultdict(lambda : 0, {(N[1], N[2], s-1) : det[s],
+        #                                                                        (N[1], N[2], s) : 1 - det[s]}))
         ## Action 1 (serve queue 1) ###############################################################################################
         for i in range(1,N[1]): # transitions when neither queue is full
             for j in range(N[2]):
-                for s in range(1,S):
+                mdp_dict[((i, j, 1), 1)] = (-(c[1]*i + c[2]*j + K*det[1]),
+                                                defaultdict(lambda : 0, {(i+1, j, 1) : arr[1],
+                                                                             (i, j+1, 1) : arr[2],
+                                                                             (i-1, j, 1) : mu1[1],
+                                                                             (i, j, 0) : det[1],
+                                                                             (i, j, 1) : 1 - arr[1] - arr[2] - mu1[1] - det[1]}))
+                for s in range(2,S):
                     mdp_dict[((i, j, s), 1)] = (-(c[1]*i + c[2]*j),
                                                     defaultdict(lambda : 0, {(i+1, j, s) : arr[1],
                                                                                  (i, j+1, s) : arr[2],
@@ -100,21 +135,35 @@ class TwoParallel_WithDet:
                                                                                  (i, j, s-1) : det[s],
                                                                                  (i, j, s): 1 - arr[1] - arr[2] - mu1[s] - det[s]}))
         for j in range(N[2]): # transitions when queue 1 is full
-            for s in range(1,S):
+            mdp_dict[((N[1], j, 1), 1)] = (-(c[1]*N[1] + c[2]*j + K*det[1]),
+                                               defaultdict(lambda : 0, {(N[1], j+1, 1) : arr[2],
+                                                                            (N[1]-1, j, 1) : mu1[1],
+                                                                            (N[1], j, 0) : det[1],
+                                                                            (N[1], j, 1) : 1 - arr[2] - mu1[1] - det[1]}))
+            for s in range(2,S):
                 mdp_dict[((N[1], j, s), 1)] = (-(c[1]*i + c[2]*j),
                                                    defaultdict(lambda : 0, {(N[1], j+1, s) : arr[2],
                                                                                 (N[1]-1, j, s) : mu1[s],
                                                                                 (i, j, s-1) : det[s],
                                                                                 (i, j, s) : 1 - arr[2] - mu1[s] - det[s]}))
         for i in range(1,N[1]): # transitions when queue 2 is full
-            for s in range(1,S):
+            mdp_dict[((i, N[2], 1), 1)] = (-(c[1]*i + c[2]*N[2] + K*det[1]),
+                                               defaultdict(lambda : 0, {(i+1, N[2], 1) : arr[1],
+                                                                            (i-1, N[2], 1) : mu1[1],
+                                                                            (i, N[2], 0) : det[1],
+                                                                            (i, N[2], 1) : 1 - arr[1] - mu1[1] - det[1]}))
+            for s in range(2,S):
                 mdp_dict[((i, N[2], s), 1)] = (-(c[1]*i + c[2]*j),
                                                    defaultdict(lambda : 0, {(i+1, N[2], s) : arr[1],
                                                                                 (i-1, N[2], s) : mu1[s],
                                                                                 (i, j, s-1) : det[s],
                                                                                 (i, j, s) : 1 - arr[1] - mu1[s] - det[s]}))
         # transitions when both queues are full
-        for s in range(1,S):
+        mdp_dict[((N[1], N[2], 1), 1)] = (-(c[1]*N[1] + c[2]*N[2] + K*det[1]),
+                                              defaultdict(lambda : 0, {(N[1]-1, N[2], 1) : mu1[1],
+                                                                           (N[1], N[2], 0) : det[1],
+                                                                           (N[1], N[2], 1) : 1 - mu1[1] - det[1]}))
+        for s in range(2,S):
             mdp_dict[((N[1], N[2], s), 1)] = (-(c[1]*N[1] + c[2]*N[2]),
                                                 defaultdict(lambda : 0, {(N[1]-1, N[2], s) : mu1[s],
                                                                              (N[1], N[2], s-1) : det[s],
@@ -122,7 +171,13 @@ class TwoParallel_WithDet:
         ## Action 2 (serve queue 2)
         for i in range(N[1]): # transitions when neither queue is full
             for j in range(1,N[2]):
-                for s in range(1,S):
+                mdp_dict[((i, j, 1), 2)] = (-(c[1]*i + c[2]*j + K*det[1]),
+                                                defaultdict(lambda : 0, {(i+1, j, 1) : arr[1],
+                                                                             (i, j+1, 1) : arr[2],
+                                                                             (i, j-1, 1) : mu2[1],
+                                                                             (i, j, 0) : det[1],
+                                                                             (i, j, 1) : 1 - arr[1] - arr[2] - mu2[1] - det[1]}))
+                for s in range(2,S):
                     mdp_dict[((i, j, s), 2)] = (-(c[1]*i + c[2]*j),
                                                     defaultdict(lambda : 0, {(i+1, j, s) : arr[1],
                                                                                  (i, j+1, s) : arr[2],
@@ -130,30 +185,62 @@ class TwoParallel_WithDet:
                                                                                  (i, j, s-1) : det[s],
                                                                                  (i, j, s) : 1 - arr[1] - arr[2] - mu2[s] - det[s]}))
         for j in range(1, N[2]): # transitions when queue 1 is full
-            for s in range(1,S):
+            mdp_dict[((N[1], j, 1), 2)] = (-(c[1]*N[1] + c[2]*j + K*det[1]),
+                                               defaultdict(lambda : 0, {(N[1], j+1, 1) : arr[2],
+                                                                            (N[1], j-1, 1) : mu2[1],
+                                                                            (N[1], j, 0) : det[1],
+                                                                            (N[1], j, 1) : 1 - arr[2] - mu2[1] - det[1]}))
+            for s in range(2,S):
                 mdp_dict[((N[1], j, s), 2)] = (-(c[1]*i + c[2]*j),
                                                    defaultdict(lambda : 0, {(N[1], j+1, s) : arr[2],
                                                                                 (N[1], j-1, s) : mu2[s],
                                                                                 (N[1], j, s-1) : det[s],
                                                                                 (N[1], j, s) : 1 - arr[2] - mu2[s] - det[s]}))
         for i in range(N[1]): # transitions when queue 2 is full
-            for s in range(1,S):
+            mdp_dict[((i, N[2], 1), 2)] = (-(c[1]*i + c[2]*N[2] + K*det[1]),
+                                               defaultdict(lambda : 0, {(i+1, N[2], 1) : arr[1],
+                                                                            (i, N[2]-1, 1) : mu2[1],
+                                                                            (i, N[2], 0) : det[1],
+                                                                            (i, N[2], 1) : 1 - arr[1] - mu2[1] - det[1]}))
+            for s in range(2,S):
                 mdp_dict[((i, N[2], s), 2)] = (-(c[1]*i + c[2]*N[2]),
                                                    defaultdict(lambda : 0, {(i+1, N[2], s) : arr[1],
                                                                                 (i, N[2]-1, s) : mu2[s],
                                                                                 (i, N[2], s-1) : det[s],
                                                                                 (i, N[2], s) : 1 - arr[1] - mu2[s] - det[s]}))
         # transitions when both queues are full
-        for s in range(1,S):
+        mdp_dict[((N[1], N[2], 1), 2)] = (-(c[1]*N[1] + c[2]*N[2] + K*det[1]),
+                                              defaultdict(lambda : 0, {(N[1], N[2]-1, 1) : mu2[1],
+                                                                           (N[1], N[2], 0) : det[1],
+                                                                           (N[1], N[2], 1) : 1 - mu2[1] - det[1]}))
+        for s in range(2,S):
             mdp_dict[((N[1], N[2], s), 2)] = (-(c[1]*N[1] + c[2]*N[2]),
                                                   defaultdict(lambda : 0, {(N[1], N[2]-1, s) : mu2[s],
                                                                                (N[1], N[2], s-1) : det[s],
                                                                                (N[1], N[2], s) : 1 - mu2[s] - det[s]}))
         ## Action m (perform maintenance)
         for s in range(1, S): # when maintenance is initiated preventively
-            for i in range(N[1]+1):
-                for j in range(N[2]+1):
-                    mdp_dict[((i, j, s), 'm')] = (-K, defaultdict(lambda : 0, {(i, j, 0) : 1})) # incur cost K and "instantaneously" transition to (i, j, 0)
+            for i in range(N[1]): # when neither queue is full
+                for j in range(N[2]):
+                    mdp_dict[((i, j, s), 'm')] = (-(K + c[1]*i + c[2]*j),
+                                                      defaultdict(lambda : 0, {(i+1, j, 0) : arr[1],
+                                                                                   (i, j+1, 0) : arr[2],
+                                                                                   (i, j, B) : det[0],
+                                                                                   (i, j, 0) : 1 - arr[1] - arr[2] - det[0]}))
+            for j in range(N[2]): # when queue 1 is full
+                mdp_dict[((N[1], j, s), 'm')] = (-(K + c[1]*N[1] + c[2]*j),
+                                                       defaultdict(lambda : 0, {(N[1], j+1, 0) : arr[2],
+                                                                                    (N[1], j, B) : det[0],
+                                                                                    (N[1], j, 0) : 1 - arr[2] - det[0]}))
+            for i in range(N[1]): # when queue 2 is full
+                mdp_dict[((i, N[2], s), 'm')] = (-(K + c[1]*i + c[2]*N[2]),
+                                                     defaultdict(lambda : 0, {(i+1, N[2], 0) : arr[1],
+                                                                                  (i, N[2], B) : det[0],
+                                                                                  (i, N[2], 0) : 1 - arr[1] - det[0]}))
+            # when both queues are full
+            mdp_dict[((N[1], N[2], s), 'm')] = (-(K + c[1]*N[1] + c[2]*N[2]),
+                                                    defaultdict(lambda : 0, {(N[1], N[2], B) : det[0],
+                                                                                 (N[1], N[2], 0) : 1 - det[0]}))
         # maintenance is the only action avaialble when the server state is 0
         for i in range(N[1]): # transitions when neither queue is full
             for j in range(N[2]):
@@ -178,10 +265,67 @@ class TwoParallel_WithDet:
                                                                              (N[1], N[2], 0) : 1 - det[0]}))
         return mdp_dict
                                                                 
-
-
+    def plot_switch_surface(self, pi):        
+        N = [0, self.buffer_size_1, self.buffer_size_2]
+        S = len(self.service_list) # number of server states
         
+        fig = pyplot.figure()
+        ax = Axes3D(fig)
+        
+        i_idle = []
+        j_idle = []
+        s_idle = []
 
+        i_q1 = []
+        j_q1 = []
+        s_q1 = []
+
+        i_q2 = []
+        j_q2 = []
+        s_q2 = []
+
+        i_m = []
+        j_m = []
+        s_m = []
+        
+        for i in range(N[1]+1):
+            for j in range(N[2]+1):
+                for s in range(S):
+                    if pi[(i, j, s)] == 0: # state where pi idles
+                        i_idle.append(i)
+                        j_idle.append(j)
+                        s_idle.append(s)
+                    elif pi[(i, j, s)] == 1: # state where pi serves queue 1
+                        i_q1.append(i)
+                        j_q1.append(j)
+                        s_q1.append(s)
+                    elif pi[(i, j, s)] == 2: # state where pi serves queue 2
+                        i_q2.append(i)
+                        j_q2.append(j)
+                        s_q2.append(s)
+                    elif pi[(i, j, s)] == 'm': # state where pi maintains
+                        i_m.append(i)
+                        j_m.append(j)
+                        s_m.append(s)
+        idle = ax.scatter(i_idle, j_idle, s_idle, c='red', marker='o')
+        q1 = ax.scatter(i_q1, j_q1, s_q1, c='blue', marker='s')
+        q2 = ax.scatter(i_q2, j_q2, s_q2, c='orange', marker='s')
+        m = ax.scatter(i_m, j_m, s_m, c='green', marker='^')
+
+        ax.legend((idle, q1, q2, m),
+                      ("Idle", "Serve Queue 1", "Serve Queue 2", "Maintain"),
+                      scatterpoints=1)
+
+        ax.set_xticks(range(N[1]+1))
+        ax.set_yticks(range(N[2]+1))
+        ax.set_zticks(range(S))
+
+        ax.set_xlabel("Number of Class 1 Jobs")
+        ax.set_ylabel("Number of Class 2 Jobs")
+        ax.set_zlabel("Server State")
+        
+        pyplot.show()
+        
 class TwoParallel:
     """
         Two parallel queues, controlled in discrete-time via a single server. 
