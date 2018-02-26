@@ -217,7 +217,32 @@ class TwoParallel_WithDet_cmu:
                                                       defaultdict(lambda : 0, {(N[1], N[2]-1, s) : mu2[s],
                                                                                    (N[1], N[2], s-1): det[s],
                                                                                    (N[1], N[2], s) : 1 - mu2[s] - det[s]}))
-                                                    
+        # transitions when queue 1 is empty, and queue 2 is full
+        # server state 1
+        mdp_dict[((0, N[2], 1), 2)] = (-(K*det[1] + c[2]*N[2]),
+                                           defaultdict(lambda : 0, {(1, N[2], 1) : arr[1],
+                                                                        (0, N[2]-1, 1) : mu2[1],
+                                                                        (0, N[2], 0) : det[1],
+                                                                        (0, N[2], 1) : 1 - arr[1] - mu2[1] - det[1]}))
+        for s in range(2,S): # server state >= 2
+            mdp_dict[((0, N[2], s), 2)] = (-(c[2]*N[2]),
+                                               defaultdict(lambda : 0, {(1, N[2], s) : arr[1],
+                                                                            (0, N[2]-1, s) : mu2[s],
+                                                                            (0, N[2], s-1) : det[s],
+                                                                            (0, N[2], s) : 1 - arr[1] - mu2[s] - det[s]}))
+        # transitions when queue 1 is full, and queue 2 is empty
+        # server state 1
+        mdp_dict[((N[1], 0, 1), 1)] = (-(K*det[1] + c[1]*N[1]),
+                                           defaultdict(lambda : 0, {(N[1], 1, 1) : arr[2],
+                                                                        (N[1]-1, 0, 1) : mu1[1],
+                                                                        (N[1], 0, 0) : det[1],
+                                                                        (N[1], 0, 1) : 1 - arr[2] - mu1[1] - det[1]}))
+        for s in range(2,S): # server state >= 2
+            mdp_dict[((N[1], 0, s), 1)] = (-(c[1]*N[1]),
+                                               defaultdict(lambda : 0, {(N[1], 1, s) : arr[2],
+                                                                            (N[1]-1, 0, s) : mu1[s],
+                                                                            (N[1], 0, s-1) : det[s],
+                                                                            (N[1], 0, s) : 1 - arr[2] - mu1[s] - det[s]}))
 
 
         
