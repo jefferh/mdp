@@ -341,7 +341,7 @@ class TwoParallel_WithDet_cmu:
         m = ax.scatter(i_m, j_m, s_m, c='green', marker='^')
 
         ax.legend((idle, q1, q2, m),
-                      ("Idle", "Serve Queue 1", "Serve Queue 2", "Maintain"),
+                      ("Idle", "Serve Class 1", "Serve Class 2", "Maintain"),
                       scatterpoints=1)
 
         ax.set_xticks(range(N[1]+1))
@@ -659,7 +659,7 @@ class TwoParallel_WithDet:
         m = ax.scatter(i_m, j_m, s_m, c='green', marker='^')
 
         ax.legend((idle, q1, q2, m),
-                      ("Idle", "Serve Queue 1", "Serve Queue 2", "Maintain"),
+                      ("Idle", "Serve Class 1", "Serve Class 2", "Maintain"),
                       scatterpoints=1)
 
         ax.set_xticks(range(N[1]+1))

@@ -62,6 +62,23 @@ def policy_eval(pi, mdp, discount_factor):
                pi[mdp.X[i]]]), (mdp.n, 1), dtype=int)
     return np.linalg.inv(np.eye(mdp.n) - discount_factor * P_pi).dot(r_pi)
 
+def unichain_policy_eval(pi, mdp):
+    """ Generate the transition matrix. """
+    P_pi = np.fromfunction(np.vectorize(lambda i,j : mdp.p[mdp.X[i],
+               pi[mdp.X[i]]][mdp.X[j]]), (mdp.n, mdp.n), dtype=int)
+    """ Generate the matrix to invert. """
+    I = np.eye(mdp.n)
+    B = I - P_pi
+    B[:,0] = 1
+    """ Generate the reward vector. """
+    r_pi = np.fromfunction(np.vectorize(lambda i,j : mdp.r[mdp.X[i],
+               pi[mdp.X[i]]]), (mdp.n, 1), dtype=int)
+    soln = np.linalg.inv(B).dot(r_pi)
+    g = soln[0][0]
+    h = np.zeros(len(soln)).reshape(len(soln),1)
+    h[1:] = soln[1:]
+    return (g, h)
+
 def greedy_action(state, v, mdp, discount_factor):
     state_action_values = [(mdp.r[state, action] +
                             discount_factor*sum([mdp.p[state, action][mdp.X[j]] * v[j]
@@ -103,6 +120,27 @@ def policy_iteration(mdp, discount_factor):
         updated = False
         for state in mdp.X:
             a_star = greedy_action(state, v_pi, mdp, discount_factor)
+            if a_star != pi[state]:
+                pi[state] = a_star
+                updated = True
+        if not(updated):
+            print 'Number of policy iterations: {}'.format(iteration_count)
+            print 'Policy iteration took {} seconds.'.format(time.time() - start)
+            return pi
+
+def unichain_policy_iteration(mdp):
+    start = time.time()
+    """Select an initial policy."""
+    pi = {state : random.choice(mdp.A[state]) for state in mdp.X}
+    iteration_count = 0
+    while True:
+        iteration_count += 1
+        """Evaluate the current policy."""
+        (g_pi, h) = unichain_policy_eval(pi, mdp)
+        """Try to improve the current policy."""
+        updated = False
+        for state in mdp.X:
+            a_star = greedy_action(state, h, mdp, 1)
             if a_star != pi[state]:
                 pi[state] = a_star
                 updated = True
